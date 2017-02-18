@@ -1,4 +1,5 @@
 from joy import *
+from joy.mxr import *
 import ckbot.logical as L
 import time
     
@@ -10,6 +11,7 @@ class ShaveNHaircutApp( JoyApp ):
     self.hairSpec = hairSpec
 
   def onStart(self):
+    #self.robot
     self.c = L.Cluster(count=4)
 
     self.c.at.Nx4A.set_mode('Motor')
@@ -53,6 +55,30 @@ class ShaveNHaircutApp( JoyApp ):
 
       self.c.at.Nx4B.stop()
       self.c.at.Nx2C.stop()
+    elif evt.key == K_q:
+      self.c.at.Nx4B.set_torque(.1)
+      self.c.at.Nx2C.set_torque(.1)
+      self.c.at.Nx4A.set_torque(.1)
+      self.c.at.Nx4F.set_torque(.1)
+
+      time.sleep(1)
+
+      self.c.at.Nx4B.stop()
+      self.c.at.Nx2C.stop()
+      self.c.at.Nx4A.stop()
+      self.c.at.Nx4F.stop()
+    elif evt.key == K_e:
+      self.c.at.Nx4B.set_torque(-.1)
+      self.c.at.Nx2C.set_torque(-.1)
+      self.c.at.Nx4A.set_torque(-.1)
+      self.c.at.Nx4F.set_torque(-.1)
+
+      time.sleep(1)
+
+      self.c.at.Nx4B.stop()
+      self.c.at.Nx2C.stop()
+      self.c.at.Nx4A.stop()
+      self.c.at.Nx4F.stop()
     elif evt.key == K_ESCAPE:
         self.stop()
 
