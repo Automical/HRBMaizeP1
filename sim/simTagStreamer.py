@@ -66,16 +66,13 @@ class RobotSimulatorApp( JoyApp ):
     (broken)
     Travel in a square
     """
-    self.robSim.moveForward(.5)
-    self.emitTagMessage()
-    sleep(interval)
-    self.robSim.moveSide(.5)
-    self.emitTagMessage()
-    sleep(interval)
-    self.robSim.moveForward(-.5)
-    self.emitTagMessage()
-    sleep(interval)
-    self.robSim.moveSide(-.5)
+    yield self.robSim.moveForward(.5)
+
+    yield self.robSim.moveSide(.5)
+
+    yield self.robSim.moveForward(-.5)
+
+    yield self.robSim.moveSide(-.5)
     
   def onEvent( self, evt ):
     # periodically, show the sensor reading we got from the waypointServer
@@ -98,12 +95,13 @@ class RobotSimulatorApp( JoyApp ):
         return progress("(say) Move back")
       elif evt.key == K_LEFT:
         self.robSim.moveSide(0.5)
-        return progress("(say) Turn left")
+        return progress("(say) Move left")
       elif evt.key == K_RIGHT:
         self.robSim.moveSide(-0.5)
-        return progress("(say) Turn right")
+        return progress("(say) Move right")
       elif evt.key == K_SPACE:
         self.square()
+        return progress("(say) Super secret mode activated")
     # Use superclass to show any other events
       else:
         return JoyApp.onEvent(self,evt)
