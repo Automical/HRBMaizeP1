@@ -100,7 +100,7 @@ class RobotSimulatorApp( JoyApp ):
         self.robSim.moveSide(-0.5)
         return progress("(say) Move right")
       elif evt.key == K_SPACE:
-        self.square()
+        self.robSim.autoToggle()
         return progress("(say) Super secret mode activated")
     # Use superclass to show any other events
       else:
