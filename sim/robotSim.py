@@ -185,12 +185,12 @@ class DummyRobotSim( RobotSimInterface ):
 class BigSlamSim( RobotSimInterface ):
   def __init__(self, *args, **kw):
     RobotSimInterface.__init__(self, *args, **kw)
-    self.dNoise = 0.1
-    self.aNoise = 0.1
+    self.dNoise = 0
+    self.aNoise = 0
     self.autoMode = 0
     self.state = 0
     self.count = 0
-    self.tagPos = asfarray([[600, 275], [625, 275], [625, 300], [600, 300]])
+    self.tagPos = asfarray([[602, 310], [653, 317], [650, 287], [600, 281]])
     print('hallo')
     
   def moveForward( self, dist ):
@@ -210,17 +210,6 @@ class BigSlamSim( RobotSimInterface ):
     # Move all tag corners forward by distance, with some noise
     self.tagPos = self.tagPos + fwd[newaxis,:] * dist * (1+randn()*self.dNoise)
 
-  def square(self, interval = 2):
-    """
-    Travel in a square
-    """
-    self.moveForward(.5)
-    sleep(interval)
-    self.moveSide(.5)
-    sleep(interval)
-    self.moveForward(-.5)
-    sleep(interval)
-    self.moveSide(-.5)
     
   def autoToggle(self):
     if self.autoMode == 1:
