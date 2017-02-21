@@ -38,36 +38,28 @@ class FollowWaypoints(Plan):
     self.conversion = .033
     self.currentX = 0
     self.currentY = -115
+    self.stepSize = .5
+    self.leeway = self.stepSize / self.conversion / 2 + 1
 
   def behavior(self):
     progress("***STARTING WAYPOINT FOLLOW***")
     ts,w = self.sensor.lastWaypoints
-    progress(str(w[0]))
+    #progress(str(w[0]))
 
-    way1 = w[1]
-    self.robot.moveForward((way1[1] - self.currentY)*self.conversion)
-    self.currentY = way1[1]
-    yield self.forDuration(4)
-    self.robot.moveSide((way1[0] - self.currentX)*self.conversion)
-    self.currentX = way1[0]
-    yield self.forDuration(4)
+    for i in w:
+      target_wp = i
+      while abs(target_wp[0] - self.currentX) > self.leeway:
+        direction = (target_wp[0] - self.currentX) / abs(target_wp[0] - self.currentX)
+        self.robot.moveSide(direction * self.stepSize)
+        self.currentX += direction * self.stepSize / self.conversion
+        yield self.forDuration(4)
 
-    way2 = w[2]
-    self.robot.moveForward((way2[1] - self.currentY)*self.conversion)
-    self.currentY = way2[1]
-    yield self.forDuration(4)
-    self.robot.moveSide((way2[0] - self.currentX)*self.conversion)
-    self.currentX = way2[0]
-    yield self.forDuration(4)
-
-    way3 = w[3]
-    self.robot.moveForward((way3[1] - self.currentY)*self.conversion)
-    self.currentY = way3[1]
-    yield self.forDuration(4)
-    self.robot.moveSide((way3[0] - self.currentX)*self.conversion)
-    self.currentX = way3[0]
-    yield self.forDuration(4)
-    
+      
+      while abs(target_wp[1] - self.currentY) > self.leeway:
+        direction = (target_wp[1] - self.currentY) / abs(target_wp[1] - self.currentY)
+        self.robot.moveForward(direction * self.stepSize)
+        self.currentY += direction * self.stepSize / self.conversion
+        yield self.forDuration(4)
 
     yield progress("***ENDING WAYPOINT FOLLOW***")
     
