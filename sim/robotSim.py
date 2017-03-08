@@ -8,6 +8,7 @@ from gzip import open as opengz
 from json import dumps as json_dumps
 from numpy import asfarray, dot, c_, newaxis, mean, exp, sum, sqrt
 from numpy.linalg import svd
+from joy import JoyApp, progress
 from numpy.random import randn
 from waypointShared import *
 
@@ -184,9 +185,12 @@ class DummyRobotSim( RobotSimInterface ):
 class BigSlamSim( RobotSimInterface ):
   def __init__(self, *args, **kw):
     RobotSimInterface.__init__(self, *args, **kw)
-    self.dNoise = 0.1
-    self.aNoise = 0.1
-    self.tagPos = asfarray([[600, 275], [625, 275], [625, 300], [600, 300]])
+    self.dNoise = 0
+    self.aNoise = 0
+    self.autoMode = 0
+    self.state = 0
+    self.count = 0
+    self.tagPos = asfarray([[602, 310], [653, 317], [650, 287], [600, 281]])
     print('hallo')
     
   def moveForward( self, dist ):
@@ -206,18 +210,16 @@ class BigSlamSim( RobotSimInterface ):
     # Move all tag corners forward by distance, with some noise
     self.tagPos = self.tagPos + fwd[newaxis,:] * dist * (1+randn()*self.dNoise)
 
-  def square(self, interval = 2):
-    """
-    Travel in a square
-    """
-    self.moveForward(.5)
-    sleep(interval)
-    self.moveSide(.5)
-    sleep(interval)
-    self.moveForward(-.5)
-    sleep(interval)
-    self.moveSide(-.5)
     
+  def autoToggle(self):
+    if self.autoMode == 1:
+        self.autoMode = 0;
+        progress("(say) Auto Mode Off")
+    else:
+        self.autoMode = 1;
+	self.count = 0;
+        progress("(say) Auto Mode On")
+
   def refreshState( self ):
     """
     Make state ready for use by client.
@@ -229,4 +231,31 @@ class BigSlamSim( RobotSimInterface ):
     self.laserAxis = dot([[1,1,0,0],[0,0,1,1]],self.tagPos)/2
     da = dot([1,-1],self.laserAxis)
     self.laserAxis[1] += randn(2) * sqrt(sum(da*da)) * 0.01
+
+    if (self.autoMode == 1):
+	if self.count >= 100:
+		self.count = 0
+		if self.state == 0: 
+			self.moveForward(1)
+			progress("(say) Move forward")
+			self.state += 1
+		elif self.state == 1: 
+			self.moveSide(2)
+			progress("(say) Move left")
+			self.state += 1
+		elif self.state == 2: 
+			self.moveForward(-1)
+			progress("(say) Move back")
+			self.state += 1
+		elif self.state == 3: 
+			self.moveSide(-1)
+			progress("(say) Move right")
+			self.state = 0
+			self.autoMode = 0
+			progress("(say) Auto mode finished")
+	else:
+		self.count += 1
+		progress("Count: %d" % self.count)
+
+	
     

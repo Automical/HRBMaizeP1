@@ -25,35 +25,35 @@ class ShaveNHaircutApp( JoyApp ):
     # assertion: must be a KEYDOWN event 
     if evt.key == K_w:
       self.c.at.Nx4A.set_torque(.1)
-      self.c.at.Nx4F.set_torque(-.1)
+      self.c.at.Nx4B.set_torque(-.1)
 
       time.sleep(1)
 
       self.c.at.Nx4A.stop()
-      self.c.at.Nx4F.stop()
+      self.c.at.Nx4B.stop()
     elif evt.key == K_s:
       self.c.at.Nx4A.set_torque(-.1)
-      self.c.at.Nx4F.set_torque(.1)
+      self.c.at.Nx4B.set_torque(.1)
 
       time.sleep(1)
 
       self.c.at.Nx4A.stop()
-      self.c.at.Nx4F.stop()
+      self.c.at.Nx4B.stop()
     elif evt.key == K_a:
-      self.c.at.Nx4B.set_torque(-.1)
+      self.c.at.Nx4F.set_torque(-.1)
       self.c.at.Nx2C.set_torque(.1)
 
       time.sleep(1)
 
-      self.c.at.Nx4B.stop()
+      self.c.at.Nx4F.stop()
       self.c.at.Nx2C.stop()
     elif evt.key == K_d:
-      self.c.at.Nx4B.set_torque(.1)
+      self.c.at.Nx4F.set_torque(.1)
       self.c.at.Nx2C.set_torque(-.1)
 
       time.sleep(1)
 
-      self.c.at.Nx4B.stop()
+      self.c.at.Nx4F.stop()
       self.c.at.Nx2C.stop()
     elif evt.key == K_q:
       self.c.at.Nx4B.set_torque(.1)
