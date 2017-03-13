@@ -4,7 +4,8 @@ from joy import JoyApp, progress, DEBUG, Plan
 from numpy import nan, asfarray, prod, isnan, pi, clip, sin, angle, sign, exp, round
 from ckbot.dynamixel import MX64Module
 from time import sleep, time as now
-from Queue import *
+from sensorPlanTCP import SensorPlanTCP
+from waypointShared import WAYPOINT_HOST, APRIL_DATA_PORT
 
 SERVO_NAMES = {
    0x23: 'MX1', 0x25: 'MX2'
@@ -32,7 +33,7 @@ class ServoWrapperMX(Plan):
         ### Internal variables
         self.desAng = 0
         self.desRPM = 0
-        self.Kp = 25.0
+        self.Kp = 15.0
         self.Kv = 0
         self._clearV()
         self._v = nan
@@ -144,9 +145,123 @@ class ServoWrapperMX(Plan):
             progress("%s.set_torque(%g) <-- rpm %g" % (self.servo.name, tq, rpm))
         self.servo.set_torque(tq)
 
+class ForwardPlan( Plan ):
+    def __init__(self, app, robot, direction):
+      Plan.__init__(self,app)
+      self.robot = robot
+      self.direction = direction
+
+    def behavior(self):
+      progress("Forward plan started")
+      
+      for s in self.robot.forward:
+          delta = (self.direction/abs(self.direction)) * self.robot.deltaDict[s.servo.name]
+          a = self.robot.posDict[s.servo.name] + delta
+          a = a % 1
+          s.set_ang(a)
+          self.robot.posDict[s.servo.name] = a
+
+class SidePlan( Plan ):
+    def __init__(self, app, robot, direction):
+      Plan.__init__(self,app)
+      self.robot = robot
+      self.direction = direction
+
+    def behavior(self):
+      progress("Sideways plan started")
+      
+      for s in self.robot.side:
+          delta = (self.direction/abs(self.direction)) * self.robot.deltaDict[s.servo.name]
+          a = self.robot.posDict[s.servo.name] + delta
+          a = a % 1
+          s.set_ang(a)
+          self.robot.posDict[s.servo.name] = a
+
+class FollowWaypoints(Plan):
+  def __init__(self, app, robot, sensor):
+    Plan.__init__(self,app)
+    self.robot = robot
+    self.sensor = sensor
+    self.conversion = .033
+    self.currentX = 0
+    self.currentY = 0
+    self.stepSize = .5
+    self.leeway = self.stepSize / self.conversion / 2 + 1
+
+  """ Used to set currentX and currentY while waypoint 0 is still up"""
+  def setXY(self, x, y)
+    self.currentX = x
+    self.currentY = y
+
+  def behavior(self):
+    progress("***STARTING WAYPOINT FOLLOW***")
+    ts,w = self.sensor.lastWaypoints
+    #progress(str(w[0]))
+
+    for i in w:
+      target_wp = i
+      while abs(target_wp[0] - self.currentX) > self.leeway:
+        direction = (target_wp[0] - self.currentX) / abs(target_wp[0] - self.currentX)
+        self.robot.moveSide(direction * self.stepSize)
+        self.currentX += direction * self.stepSize / self.conversion
+        yield self.forDuration(4)
+
+      while abs(target_wp[1] - self.currentY) > self.leeway:
+        direction = (target_wp[1] - self.currentY) / abs(target_wp[1] - self.currentY)
+        self.robot.moveForward(direction * self.stepSize)
+        self.currentY += direction * self.stepSize / self.conversion
+        yield self.forDuration(4)
+
+    yield progress("***ENDING WAYPOINT FOLLOW***")
+
+class PentagonalRobot():
+    def __init__(self, app, smx, sensor):
+      self.smx = smx
+      self.sensor = sensor
+      self.app = app
+
+      self.forward = []
+      self.side = []
+      for s in self.smx:
+        if s.servo.name in FORWARD_SERVO:
+          self.forward.append(s)
+        elif s.servo.name in SIDE_SERVO:
+          self.side.append(s)
+      self.posDict = {"Nx2C":0.14, "Nx4A":0.0, "Nx4B":.12, "Nx4F":0.12}
+      self.deltaDict = {"Nx2C":0.2, "Nx4A":0.2, "Nx4B":-.2, "Nx4F":-0.2}
+
+      for s in self.smx:
+        s.set_ang(self.posDict[s.servo.name])
+
+      self.forwardPlan = ForwardPlan(self.app,self,1)
+      self.backwardPlan = ForwardPlan(self.app,self,-1)
+      self.leftPlan = SidePlan(self.app,self,1)
+      self.rightPlan = SidePlan(self.app,self,-1)
+      self.followWaypointsPlan = FollowWaypoints(self.app, self, self.sensor)
+
+      # After getting sensor data, set currentX and currentY for the future while way0 avail
+      ts,w = self.sensor.lastWaypoints
+      self.followWaypointsPlan.setXY(w[0, 0], w[0, 1])
+
+    def moveForward(self, direction):
+      if direction > 0:
+        self.forwardPlan.start()
+      else:
+        self.backwardPlan.start()
+
+    def moveSide(self, direction):
+      if direction > 0:
+        self.leftPlan.start()
+      else:
+        self.rightPlan.start()
+
+    def followWaypoints(self):
+        self.folowWaypointsPlan.start()
+
 class SychronizedMX(JoyApp):
-    def __init__(self, *arg, **kw):
+    def __init__(self,wphAddr="10.0.0.1", *arg, **kw):
         JoyApp.__init__(self, *arg, **kw)
+        self.srvAddr = (wphAddr, APRIL_DATA_PORT)
 
     def onStart(self):
       self.smx = [ ServoWrapperMX(self,m)
@@ -156,54 +271,29 @@ class SychronizedMX(JoyApp):
       for s in self.smx:
         s.start()
 
-      self.forward = []
-      self.side = []
-      for s in self.smx:
-        if s.servo.name in FORWARD_SERVO:
-          self.forward.append(s)
-        elif s.servo.name in SIDE_SERVO:
-          self.side.append(s)
+      self.sensor = SensorPlanTCP(self,server=self.srvAddr[0])
+      self.sensor.start()
 
-      self.posDict = {"Nx2C":0.14, "Nx4A":0.0, "Nx4B":.12, "Nx4F":0.12}
-      self.deltaDict = {"Nx2C":0.2, "Nx4A":0.2, "Nx4B":-.2, "Nx4F":-0.2}
-
-      for s in self.smx:
-        s.set_ang(self.posDict[s.servo.name])
-
-
+      self.robot = PentagonalRobot(self, self.smx, self.sensor)
       
         
     def onEvent(self,evt):
       if evt.type != KEYDOWN:
         return
       if evt.key == K_w:
-        for s in self.forward:
-          a = self.posDict[s.servo.name] + self.deltaDict[s.servo.name]
-          a = a % 1
-          s.set_ang(a)
-          self.posDict[s.servo.name] = a
+        self.robot.moveForward(1)
         return
       elif evt.key == K_s:
-        for s in self.forward:
-            a = self.posDict[s.servo.name] - self.deltaDict[s.servo.name]
-            a = a % 1
-            s.set_ang(a)
-            self.posDict[s.servo.name] = a
+        self.robot.moveForward(-1)
         return
       elif evt.key == K_a:
-        for s in self.side:
-            a = self.posDict[s.servo.name] + self.deltaDict[s.servo.name]
-            a = a % 1
-            s.set_ang(a)
-            self.posDict[s.servo.name] = a
+        self.robot.moveSide(1)
         return
       elif evt.key == K_d:
-        for s in self.side:
-            a = self.posDict[s.servo.name] - self.deltaDict[s.servo.name]
-            a = a % 1
-            s.set_ang(a)
-            self.posDict[s.servo.name] = a
+        self.robot.moveSide(-1)
         return
+      elif evt.key == K_space:
+        self.robot.followWaypoints()
       else:
         f = "1234567890".find(evt.unicode)
         if f>=0:
