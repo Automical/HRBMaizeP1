@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from joy.decl import *
 from joy import JoyApp, progress, DEBUG, Plan
+from joy.decl import *
 from numpy import nan, asfarray, prod, isnan, pi, clip, sin, angle, sign, exp, round
 from ckbot.dynamixel import MX64Module
 from time import sleep, time as now
@@ -189,7 +189,7 @@ class FollowWaypoints(Plan):
     self.leeway = self.stepSize / self.conversion / 2 + 1
 
   """ Used to set currentX and currentY while waypoint 0 is still up"""
-  def setXY(self, x, y)
+  def setXY(self, x, y):
     self.currentX = x
     self.currentY = y
 
@@ -239,10 +239,6 @@ class PentagonalRobot():
       self.rightPlan = SidePlan(self.app,self,-1)
       self.followWaypointsPlan = FollowWaypoints(self.app, self, self.sensor)
 
-      # After getting sensor data, set currentX and currentY for the future while way0 avail
-      ts,w = self.sensor.lastWaypoints
-      self.followWaypointsPlan.setXY(w[0, 0], w[0, 1])
-
     def moveForward(self, direction):
       if direction > 0:
         self.forwardPlan.start()
@@ -274,26 +270,29 @@ class SychronizedMX(JoyApp):
       self.sensor = SensorPlanTCP(self,server=self.srvAddr[0])
       self.sensor.start()
 
-      self.robot = PentagonalRobot(self, self.smx, self.sensor)
+      self.pentabot = PentagonalRobot(self, self.smx, self.sensor)
       
         
     def onEvent(self,evt):
       if evt.type != KEYDOWN:
         return
       if evt.key == K_w:
-        self.robot.moveForward(1)
+        self.pentabot.moveForward(1)
         return
       elif evt.key == K_s:
-        self.robot.moveForward(-1)
+        self.pentabot.moveForward(-1)
         return
       elif evt.key == K_a:
-        self.robot.moveSide(1)
+        self.pentabot.moveSide(1)
         return
       elif evt.key == K_d:
-        self.robot.moveSide(-1)
+        self.pentabot.moveSide(-1)
         return
-      elif evt.key == K_space:
-        self.robot.followWaypoints()
+      elif evt.key == K_SPACE:
+      	# After getting sensor data, set currentX and currentY for the future while way0 avail
+      	ts,w = self.sensor.lastWaypoints
+      	#self.followWaypointsPlan.setXY(w[0][0], w[0][1])
+        self.pentabot.followWaypoints()
       else:
         f = "1234567890".find(evt.unicode)
         if f>=0:
