@@ -33,7 +33,7 @@ class ServoWrapperMX(Plan):
         ### Internal variables
         self.desAng = 0
         self.desRPM = 0
-        self.Kp = 15.0
+        self.Kp = 10.0
         self.Kv = 0
         self._clearV()
         self._v = nan
@@ -42,29 +42,30 @@ class ServoWrapperMX(Plan):
         self._ensure_servo = self._set_servo
 
     def behavior(self):
-        """execute an interaction of the controller update loop"""
-        while True:
-          a = exp(1j * self.get_ang()*2*pi)
-          a0 = exp(1j * self.desAng*2*pi)
-          lead = angle(a / a0)
-          if abs(lead)>0.7*pi:
-              if "F" in DEBUG:
-                  progress("FB desRPM %g out of range" % (self.desRPM))
-                      # outside of capture range; ignore
-              return
-          pFB = clip(self.Kp * lead, -45, 45)
-          if isnan(self._v):
-              vFB = 0
-          else:
-              vFB = self.Kv * (self._v - self.desRPM)
-          rpm = self.desRPM - pFB - vFB
-          if abs(rpm)<0.1:
-              rpm = 0
-          if "F" in DEBUG:
-              progress("FB desRPM %g p %g v %g" % (self.desRPM, pFB, vFB))
-          # Push into the motor
-          self._set_rpm(rpm)
-          yield self.forDuration(self.rate)
+      """execute an interaction of the controller update loop"""
+      while True:
+        a = exp(1j * self.get_ang()*2*pi)
+        a0 = exp(1j * self.desAng*2*pi)
+        lead = angle(a / a0)
+        if abs(lead)>0.7*pi:
+            if "F" in DEBUG:
+                progress("FB desRPM %g out of range" % (self.desRPM))
+                # outside of capture range; ignore
+            yield self.forDuration(self.rate)
+            continue
+        pFB = clip(self.Kp * lead, -45, 45)
+        if isnan(self._v):
+            vFB = 0
+        else:
+            vFB = self.Kv * (self._v - self.desRPM)
+        rpm = self.desRPM - pFB - vFB
+        if abs(rpm)<0.1:
+            rpm = 0
+        if "F" in DEBUG:
+            progress("FB desRPM %g p %g v %g" % (self.desRPM, pFB, vFB))
+        # Push into the motor
+        self._set_rpm(rpm)
+        yield self.forDuration(self.rate)
           
     def _set_servo(self):
         """(private) set module in servo mode
@@ -160,6 +161,7 @@ class ForwardPlan( Plan ):
           a = a % 1
           s.set_ang(a)
           self.robot.posDict[s.servo.name] = a
+      yield
 
 class SidePlan( Plan ):
     def __init__(self, app, robot, direction):
@@ -176,31 +178,34 @@ class SidePlan( Plan ):
           a = a % 1
           s.set_ang(a)
           self.robot.posDict[s.servo.name] = a
+      yield
 
 class FollowWaypoints(Plan):
   def __init__(self, app, robot, sensor):
     Plan.__init__(self,app)
     self.robot = robot
     self.sensor = sensor
-    self.conversion = .033
+    self.conversion = 1.0
     self.currentX = 0
     self.currentY = 0
-    self.stepSize = .5
+    self.stepSize = 14.0
     self.leeway = self.stepSize / self.conversion / 2 + 1
-
-  """ Used to set currentX and currentY while waypoint 0 is still up"""
-  def setXY(self, x, y):
-    self.currentX = x
-    self.currentY = y
 
   def behavior(self):
     progress("***STARTING WAYPOINT FOLLOW***")
     ts,w = self.sensor.lastWaypoints
     #progress(str(w[0]))
 
-    for i in w:
+    self.currentX = w[0, 0]
+    self.currentY = w[0, 1]
+
+    for i in w[1:]:
       target_wp = i
+      progress("Target: ")
+      progress(target_wp)
       while abs(target_wp[0] - self.currentX) > self.leeway:
+        progress("Current X: %f" % self.currentX)
+        progress("Current Y: %f" % self.currentY)
         direction = (target_wp[0] - self.currentX) / abs(target_wp[0] - self.currentX)
         self.robot.moveSide(direction * self.stepSize)
         self.currentX += direction * self.stepSize / self.conversion
@@ -211,10 +216,12 @@ class FollowWaypoints(Plan):
         self.robot.moveForward(direction * self.stepSize)
         self.currentY += direction * self.stepSize / self.conversion
         yield self.forDuration(4)
+      progress("Reached a waypoint")
 
-    yield progress("***ENDING WAYPOINT FOLLOW***")
+    progress("***ENDING WAYPOINT FOLLOW***")
+    
 
-class PentagonalRobot():
+class PentagonalRobot(object):
     def __init__(self, app, smx, sensor):
       self.smx = smx
       self.sensor = sensor
@@ -227,7 +234,7 @@ class PentagonalRobot():
           self.forward.append(s)
         elif s.servo.name in SIDE_SERVO:
           self.side.append(s)
-      self.posDict = {"Nx2C":0.14, "Nx4A":0.0, "Nx4B":.12, "Nx4F":0.12}
+      self.posDict = {"Nx2C":0, "Nx4A":0, "Nx4B":.0, "Nx4F":0}
       self.deltaDict = {"Nx2C":0.2, "Nx4A":0.2, "Nx4B":-.2, "Nx4F":-0.2}
 
       for s in self.smx:
@@ -252,7 +259,7 @@ class PentagonalRobot():
         self.rightPlan.start()
 
     def followWaypoints(self):
-        self.folowWaypointsPlan.start()
+        self.followWaypointsPlan.start()
 
 class SychronizedMX(JoyApp):
     def __init__(self,wphAddr="10.0.0.1", *arg, **kw):
@@ -267,6 +274,9 @@ class SychronizedMX(JoyApp):
       for s in self.smx:
         s.start()
 
+      for m in self.robot.itermodules():
+        m.set_torque(0.2)
+
       self.sensor = SensorPlanTCP(self,server=self.srvAddr[0])
       self.sensor.start()
 
@@ -277,21 +287,23 @@ class SychronizedMX(JoyApp):
       if evt.type != KEYDOWN:
         return
       if evt.key == K_w:
+        progress("Forward")
         self.pentabot.moveForward(1)
         return
       elif evt.key == K_s:
+        progress("Backward")
         self.pentabot.moveForward(-1)
         return
       elif evt.key == K_a:
+        progress("Left")
         self.pentabot.moveSide(1)
         return
       elif evt.key == K_d:
+        progress("Right")
         self.pentabot.moveSide(-1)
         return
       elif evt.key == K_SPACE:
-      	# After getting sensor data, set currentX and currentY for the future while way0 avail
-      	ts,w = self.sensor.lastWaypoints
-      	#self.followWaypointsPlan.setXY(w[0][0], w[0][1])
+        progress("Auton")
         self.pentabot.followWaypoints()
       else:
         f = "1234567890".find(evt.unicode)
