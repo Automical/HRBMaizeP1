@@ -33,7 +33,7 @@ class ServoWrapperMX(Plan):
         ### Internal variables
         self.desAng = 0
         self.desRPM = 0
-        self.Kp = 10.0
+        self.Kp = 12.0
         self.Kv = 0
         self._clearV()
         self._v = nan
@@ -189,8 +189,9 @@ class FollowWaypoints(Plan):
     self.conversion = 1.0
     self.currentX = 0
     self.currentY = 0
-    self.stepSize = 14.0
+    self.stepSize = 15.0
     self.leeway = self.stepSize / self.conversion / 2 + 1
+    self.stepDelay = 5
 
   def behavior(self):
     progress("***STARTING WAYPOINT FOLLOW***")
@@ -211,44 +212,49 @@ class FollowWaypoints(Plan):
         direction = (target_wp[0] - self.currentX) / abs(target_wp[0] - self.currentX)
         self.robot.moveSide(direction * self.stepSize)
         self.currentX += direction * self.stepSize / self.conversion
-        yield self.forDuration(4)
+        yield self.forDuration(self.stepDelay)
 
       while abs(target_wp[1] - self.currentY) > self.leeway:
         direction = (target_wp[1] - self.currentY) / abs(target_wp[1] - self.currentY)
         self.robot.moveForward(direction * self.stepSize)
         self.currentY += direction * self.stepSize / self.conversion
-        yield self.forDuration(4)
+        yield self.forDuration(self.stepDelay)
+
+
+      yield self.forDuration(self.stepDelay)
 
       ts,w = self.sensor.lastWaypoints
 
       ctr = 0
       while len(w) == prevLen:
         #waypoint missed - circle around
+        progress("*** CONTINGENCY PLAN ***")
         numLoops = ctr // 2 + 1
         if ctr % 4 == 0:
           for i in range(0,numLoops):
             self.robot.moveForward(self.stepSize)
             self.currentY += self.stepSize / self.conversion
-            yield self.forDuration(4)
+            yield self.forDuration(self.stepDelay)
         elif ctr % 4 == 1:
           for i in range(0,numLoops):
             self.robot.moveSide(self.stepSize)
             self.currentX += self.stepSize / self.conversion
-            yield self.forDuration(4)
+            yield self.forDuration(self.stepDelay)
         elif ctr % 4 == 2:
           for i in range(0,numLoops):
             self.robot.moveForward(-1 * self.stepSize)
             self.currentY += -1 * self.stepSize / self.conversion
-            yield self.forDuration(4)
+            yield self.forDuration(self.stepDelay)
         elif ctr % 4 == 3:
           for i in range(0,numLoops):
             self.robot.moveSide(-1 * self.stepSize)
             self.currentX += -1 * self.stepSize / self.conversion
-            yield self.forDuration(4)
+            yield self.forDuration(self.stepDelay)
 
         ctr += 1
         ts,w = self.sensor.lastWaypoints
 
+      progress("Waypoint found")
       #update position to that of target waypoint
       self.currentX = target_wp[0]
       self.currentY = target_wp[1]
@@ -277,7 +283,7 @@ class PentagonalRobot(object):
           self.forward.append(s)
         elif s.servo.name in SIDE_SERVO:
           self.side.append(s)
-      self.posDict = {"Nx2C":0, "Nx4A":0, "Nx4B":0, "Nx4F":0}
+      self.posDict = {"Nx2C":0, "Nx4A":0.01, "Nx4B":0.01, "Nx4F":0}
       self.deltaDict = {"Nx2C":0.2, "Nx4A":0.2, "Nx4B":-.2, "Nx4F":-0.2}
 
       for s in self.smx:
