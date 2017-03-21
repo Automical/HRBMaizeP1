@@ -200,6 +200,7 @@ class FollowWaypoints(Plan):
     self.currentY = w[0][1]
 
     while len(w) >= 2:
+      prevLen = len(w)
       target_wp = w[1]
       progress("Target: ")
       progress(target_wp)
@@ -216,8 +217,17 @@ class FollowWaypoints(Plan):
         self.robot.moveForward(direction * self.stepSize)
         self.currentY += direction * self.stepSize / self.conversion
         yield self.forDuration(4)
+
+      #ctr = 1
+      #while len(w) == prevLen:
+        #waypoint missed
+        
+        
       #progress("Reached a waypoint")
       ts,w = self.sensor.lastWaypoints
+      
+      if len(w) == 2:
+        continue
 
     progress("***ENDING WAYPOINT FOLLOW***")
     
