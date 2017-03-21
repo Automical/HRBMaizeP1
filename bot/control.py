@@ -218,13 +218,39 @@ class FollowWaypoints(Plan):
         self.currentY += direction * self.stepSize / self.conversion
         yield self.forDuration(4)
 
-      #ctr = 1
-      #while len(w) == prevLen:
-        #waypoint missed
+      ts,w = self.sensor.lastWaypoints
+
+      ctr = 0
+      while len(w) == prevLen:
+        #waypoint missed - circle around
+        numLoops = ctr // 2 + 1
+        if ctr % 4 == 0:
+          for i in range(0,numLoops):
+            self.robot.moveForward(self.stepSize)
+            self.currentY += self.stepSize / self.conversion
+        elif ctr % 4 == 1:
+          for i in range(0,numLoops):
+            self.robot.moveSide(self.stepSize)
+            self.currentX += self.stepSize / self.conversion
+        elif ctr % 4 == 2:
+          for i in range(0,numLoops):
+            self.robot.moveForward(-1 * self.stepSize)
+            self.currentY += -1 * self.stepSize / self.conversion
+        elif ctr % 4 == 3:
+          for i in range(0,numLoops):
+            self.robot.moveSide(-1 * self.stepSize)
+            self.currentX += -1 * self.stepSize / self.conversion
+
+        ctr += 1
+
+      #update position to that of target waypoint
+      self.currentX = target_wp[0]
+      self.currentY = target_wp[1]
+          
         
         
       #progress("Reached a waypoint")
-      ts,w = self.sensor.lastWaypoints
+      
       
       if len(w) == 2:
         continue
