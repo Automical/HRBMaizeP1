@@ -100,6 +100,7 @@ class ServoWrapperMX(Plan):
             progress("%s.set_angle(%g)" % (self.servo.name, ang))
 
     def get_ang(self):
+        #progress("%s" % self.servo.get_pos())
         pos = self.servo.get_pos()
         ang = (pos - self.posOfs) / self.aScl / self.ori
         if "g" in DEBUG:
@@ -228,20 +229,25 @@ class FollowWaypoints(Plan):
           for i in range(0,numLoops):
             self.robot.moveForward(self.stepSize)
             self.currentY += self.stepSize / self.conversion
+            yield self.forDuration(4)
         elif ctr % 4 == 1:
           for i in range(0,numLoops):
             self.robot.moveSide(self.stepSize)
             self.currentX += self.stepSize / self.conversion
+            yield self.forDuration(4)
         elif ctr % 4 == 2:
           for i in range(0,numLoops):
             self.robot.moveForward(-1 * self.stepSize)
             self.currentY += -1 * self.stepSize / self.conversion
+            yield self.forDuration(4)
         elif ctr % 4 == 3:
           for i in range(0,numLoops):
             self.robot.moveSide(-1 * self.stepSize)
             self.currentX += -1 * self.stepSize / self.conversion
+            yield self.forDuration(4)
 
         ctr += 1
+        ts,w = self.sensor.lastWaypoints
 
       #update position to that of target waypoint
       self.currentX = target_wp[0]
@@ -271,7 +277,7 @@ class PentagonalRobot(object):
           self.forward.append(s)
         elif s.servo.name in SIDE_SERVO:
           self.side.append(s)
-      self.posDict = {"Nx2C":0, "Nx4A":0, "Nx4B":.0, "Nx4F":0}
+      self.posDict = {"Nx2C":0, "Nx4A":0, "Nx4B":0, "Nx4F":0}
       self.deltaDict = {"Nx2C":0.2, "Nx4A":0.2, "Nx4B":-.2, "Nx4F":-0.2}
 
       for s in self.smx:
