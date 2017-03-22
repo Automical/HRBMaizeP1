@@ -189,7 +189,7 @@ class FollowWaypoints(Plan):
     self.conversion = 1.0
     self.currentX = 0
     self.currentY = 0
-    self.stepSize = 15.0
+    self.stepSize = 14.0
     self.leeway = self.stepSize / self.conversion / 2 + 1
     self.stepDelay = 5
 
@@ -206,22 +206,24 @@ class FollowWaypoints(Plan):
       target_wp = w[1]
       progress("Target: ")
       progress(target_wp)
-      while abs(target_wp[0] - self.currentX) > self.leeway:
-        progress("Current X: %f" % self.currentX)
-        progress("Current Y: %f" % self.currentY)
+      while abs(target_wp[0] - self.currentX) > self.leeway and len(w) == prevLen:
+        #progress("Current X: %f" % self.currentX)
+        #progress("Current Y: %f" % self.currentY)
         direction = (target_wp[0] - self.currentX) / abs(target_wp[0] - self.currentX)
         self.robot.moveSide(direction * self.stepSize)
         self.currentX += direction * self.stepSize / self.conversion
         yield self.forDuration(self.stepDelay)
+        ts,w = self.sensor.lastWaypoints
 
-      while abs(target_wp[1] - self.currentY) > self.leeway:
+      while abs(target_wp[1] - self.currentY) > self.leeway and len(w) == prevLen:
         direction = (target_wp[1] - self.currentY) / abs(target_wp[1] - self.currentY)
         self.robot.moveForward(direction * self.stepSize)
         self.currentY += direction * self.stepSize / self.conversion
         yield self.forDuration(self.stepDelay)
+        ts,w = self.sensor.lastWaypoints
 
 
-      yield self.forDuration(self.stepDelay)
+      #yield self.forDuration(self.stepDelay)
 
       ts,w = self.sensor.lastWaypoints
 
@@ -235,21 +237,33 @@ class FollowWaypoints(Plan):
             self.robot.moveForward(self.stepSize)
             self.currentY += self.stepSize / self.conversion
             yield self.forDuration(self.stepDelay)
+            ts,w = self.sensor.lastWaypoints
+            if len(w) != prevLen:
+              break
         elif ctr % 4 == 1:
           for i in range(0,numLoops):
             self.robot.moveSide(self.stepSize)
             self.currentX += self.stepSize / self.conversion
             yield self.forDuration(self.stepDelay)
+            ts,w = self.sensor.lastWaypoints
+            if len(w) != prevLen:
+              break
         elif ctr % 4 == 2:
           for i in range(0,numLoops):
             self.robot.moveForward(-1 * self.stepSize)
             self.currentY += -1 * self.stepSize / self.conversion
             yield self.forDuration(self.stepDelay)
+            ts,w = self.sensor.lastWaypoints
+            if len(w) != prevLen:
+              break
         elif ctr % 4 == 3:
           for i in range(0,numLoops):
             self.robot.moveSide(-1 * self.stepSize)
             self.currentX += -1 * self.stepSize / self.conversion
             yield self.forDuration(self.stepDelay)
+            ts,w = self.sensor.lastWaypoints
+            if len(w) != prevLen:
+              break
 
         ctr += 1
         ts,w = self.sensor.lastWaypoints
